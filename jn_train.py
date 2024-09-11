@@ -110,10 +110,10 @@ def train_model(
             for batch in train_loader:
                 images, true_masks = batch['image'], batch['mask']
 
+                # Image and mask assertion
                 assert images.shape[1] == model.n_channels, \
                     f'Network has been defined with {model.n_channels} input channels, ' \
-                    f'but loaded images have {images.shape[1]} channels. Please check that ' \
-                    'the images are loaded correctly.'
+                    f'but loaded images have {images.shape[1]} channels.'
 
                 images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
                 true_masks = true_masks.to(device=device, dtype=torch.long)
@@ -161,10 +161,9 @@ def train_model(
                             histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                     val_score = evaluate(model, val_loader, device, amp)
-                    scheduler.step(val_score)
-
-                    logging.info('Validation Dice score: {}'.format(val_score))
-                    try:
+                    if val_score is not None:  # Check if val_score is valid
+                        scheduler.step(val_score)
+                        logging.info('Validation Dice score: {}'.format(val_score))
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
                             'validation Dice': val_score,
@@ -177,13 +176,13 @@ def train_model(
                             'epoch': epoch,
                             **histograms
                         })
-                    except:
-                        pass
+                        writer.add_scalar("Loss/Validation", val_score, epoch)
+                    else:
+                        logging.error("Evaluation did not return a valid score")
 
             writer.add_scalar("Loss/Training Loss", loss.item(), epoch)
             writer.add_scalar("Loss/Learning Rate", optimizer.param_groups[0]['lr'], epoch)
             precision_recall_curve_multiclass(writer, epoch, masks_pred, true_masks, num_classes=model.n_classes)
-            writer.add_scalar("Loss/Validation", val_score, epoch)
             writer.flush()
 
         if save_checkpoint:
