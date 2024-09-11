@@ -19,6 +19,10 @@ from unet import UNet
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter(log_dir='runs/experiment_name') 
+
 dir_img = Path('./resize_data/imgs/')
 dir_mask = Path('./resize_data/masks/')
 # dir_img = Path('./aue/imgs/')
@@ -161,6 +165,11 @@ def train_model(
                             })
                         except:
                             pass
+
+                writer.add_scalar("Loss/Pixel Loss", loss.item(), epoch)
+                writer.add_scalar("Loss/Learning Rate", optimizer.param_groups[0]['lr'], epoch)
+
+        writer.flush()
 
         if save_checkpoint:
             Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
